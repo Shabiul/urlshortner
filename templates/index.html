@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card mb-4 shadow-sm">
+            <div class="card-body">
+                <h2 class="card-title text-center mb-4">Shorten your URL</h2>
+                
+                <form id="url-form" action="{{ url_for('shorten_url') }}" method="post">
+                    <div class="input-group mb-3">
+                        <input type="url" id="url-input" name="url" class="form-control form-control-lg" 
+                               placeholder="Enter your long URL here..." aria-label="URL" required>
+                        <button class="btn btn-primary" type="submit">
+                            <i class="fas fa-cut me-2"></i> Shorten
+                        </button>
+                    </div>
+                </form>
+                
+                {% if short_url %}
+                <div class="result-container mt-4">
+                    <div class="card bg-dark">
+                        <div class="card-body">
+                            <h5 class="card-title text-success">
+                                <i class="fas fa-check-circle me-2"></i> URL Shortened Successfully!
+                            </h5>
+                            <div class="d-flex align-items-center mb-2">
+                                <span class="text-muted me-2">Original URL:</span>
+                                <a href="{{ original_url }}" target="_blank" class="text-truncate">
+                                    {{ original_url }}
+                                </a>
+                            </div>
+                            <div class="input-group mb-3">
+                                <span class="input-group-text">Short URL</span>
+                                <input type="text" class="form-control" id="short-url-input" value="{{ short_url }}" readonly>
+                                <button class="btn btn-outline-secondary" type="button" id="copy-btn">
+                                    <i class="fas fa-copy"></i> Copy
+                                </button>
+                            </div>
+                            <div class="text-center">
+                                <a href="{{ short_url }}" id="short-url" target="_blank" class="btn btn-sm btn-info">
+                                    <i class="fas fa-external-link-alt me-1"></i> Open Short URL
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+                
+                {% if error %}
+                <div class="alert alert-danger mt-3">
+                    <i class="fas fa-exclamation-triangle me-2"></i> {{ error }}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        {% if recent_urls %}
+        <div class="card shadow-sm">
+            <div class="card-header bg-primary bg-opacity-75">
+                <h3 class="mb-0"><i class="fas fa-history me-2"></i> Recently Shortened URLs</h3>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th scope="col">Short URL</th>
+                                <th scope="col">Original URL</th>
+                                <th scope="col">Created</th>
+                                <th scope="col">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for url in recent_urls %}
+                            <tr>
+                                <td>
+                                    <a href="{{ url_for('redirect_to_url', short_code=url.short_code) }}" target="_blank">
+                                        {{ request.host_url }}{{ url.short_code }}
+                                    </a>
+                                </td>
+                                <td class="text-truncate" style="max-width: 250px;">
+                                    <a href="{{ url.original_url }}" target="_blank" title="{{ url.original_url }}">
+                                        {{ url.original_url }}
+                                    </a>
+                                </td>
+                                <td>{{ url.timestamp }}</td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-info copy-btn" 
+                                            onclick="navigator.clipboard.writeText('{{ request.host_url }}{{ url.short_code }}').then(() => showAlert('Copied to clipboard!', 'success'))">
+                                        <i class="fas fa-copy"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- How it works section -->
+<div class="row mt-5">
+    <div class="col-md-12">
+        <h3 class="text-center mb-4"><i class="fas fa-info-circle me-2"></i> How It Works</h3>
+        <div class="row text-center">
+            <div class="col-md-4 mb-4">
+                <div class="card h-100 url-card">
+                    <div class="card-body">
+                        <i class="fas fa-paste fa-3x mb-3 text-primary"></i>
+                        <h4>1. Paste your URL</h4>
+                        <p class="text-muted">Enter your long URL in the input field above.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 mb-4">
+                <div class="card h-100 url-card">
+                    <div class="card-body">
+                        <i class="fas fa-cut fa-3x mb-3 text-primary"></i>
+                        <h4>2. Shorten it</h4>
+                        <p class="text-muted">Click the "Shorten" button to generate a compact URL.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 mb-4">
+                <div class="card h-100 url-card">
+                    <div class="card-body">
+                        <i class="fas fa-share-alt fa-3x mb-3 text-primary"></i>
+                        <h4>3. Share your link</h4>
+                        <p class="text-muted">Copy and share your shortened URL with anyone!</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
