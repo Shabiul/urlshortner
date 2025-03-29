@@ -17,7 +17,7 @@
                     </div>
                 </form>
                 
-                {% if short_url %}
+                {% if short_code %}
                 <div class="result-container mt-4">
                     <div class="card bg-dark">
                         <div class="card-body">
@@ -31,14 +31,14 @@
                                 </a>
                             </div>
                             <div class="input-group mb-3">
-                                <span class="input-group-text">Short URL</span>
-                                <input type="text" class="form-control" id="short-url-input" value="{{ short_url }}" readonly>
+                                <span class="input-group-text">Short Code</span>
+                                <input type="text" class="form-control" id="short-url-input" value="{{ short_code }}" readonly>
                                 <button class="btn btn-outline-secondary" type="button" id="copy-btn">
                                     <i class="fas fa-copy"></i> Copy
                                 </button>
                             </div>
                             <div class="text-center">
-                                <a href="{{ short_url }}" id="short-url" target="_blank" class="btn btn-sm btn-info">
+                                <a href="/{{ short_code }}" id="short-url" target="_blank" class="btn btn-sm btn-info">
                                     <i class="fas fa-external-link-alt me-1"></i> Open Short URL
                                 </a>
                             </div>
@@ -65,7 +65,7 @@
                     <table class="table">
                         <thead>
                             <tr>
-                                <th scope="col">Short URL</th>
+                                <th scope="col">Short Code</th>
                                 <th scope="col">Original URL</th>
                                 <th scope="col">Created</th>
                                 <th scope="col">Actions</th>
@@ -76,7 +76,7 @@
                             <tr>
                                 <td>
                                     <a href="{{ url_for('redirect_to_url', short_code=url.short_code) }}" target="_blank">
-                                        {{ request.host_url }}{{ url.short_code }}
+                                        {{ url.short_code }}
                                     </a>
                                 </td>
                                 <td class="text-truncate" style="max-width: 250px;">
@@ -87,7 +87,7 @@
                                 <td>{{ url.timestamp }}</td>
                                 <td>
                                     <button class="btn btn-sm btn-outline-info copy-btn" 
-                                            onclick="navigator.clipboard.writeText('{{ request.host_url }}{{ url.short_code }}').then(() => showAlert('Copied to clipboard!', 'success'))">
+                                            onclick="navigator.clipboard.writeText('{{ url.short_code }}').then(() => showAlert('Copied to clipboard!', 'success'))">
                                         <i class="fas fa-copy"></i>
                                     </button>
                                 </td>
