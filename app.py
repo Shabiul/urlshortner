@@ -95,10 +95,21 @@ def shorten_url():
         
         # Set expiration date if provided
         expires_at = None
-        if expiration_days and expiration_days.isdigit():
-            days = int(expiration_days)
-            if days > 0:
-                expires_at = datetime.utcnow() + timedelta(days=days)
+        if expiration_days:
+            try:
+                # Convert to float to support decimal values (for minutes)
+                days = float(expiration_days)
+                if days > 0:
+                    # For minutes calculations (when days < 1)
+                    if days < 1:
+                        minutes = int(days * 24 * 60)  # Convert fraction of day to minutes
+                        expires_at = datetime.utcnow() + timedelta(minutes=minutes)
+                    else:
+                        # For regular days
+                        expires_at = datetime.utcnow() + timedelta(days=days)
+            except ValueError:
+                # If conversion fails, no expiration will be set
+                logging.warning(f"Invalid expiration value: {expiration_days}")
         
         # Handle custom alias if provided
         if custom_alias:
@@ -157,7 +168,17 @@ def shorten_url():
     
     except Exception as e:
         logging.error(f"Error shortening URL: {str(e)}")
-        flash(f'An error occurred: {str(e)}', 'danger')
+        # Provide a user-friendly error message
+        if "SSL connection" in str(e) or "operational error" in str(e).lower():
+            error_message = "Sorry, we're having trouble connecting to our database. Please try again in a moment."
+        elif "IntegrityError" in str(e) or "duplicate" in str(e).lower():
+            error_message = "This custom name is already taken. Please try a different one."
+        elif "timeout" in str(e).lower():
+            error_message = "The request took too long to process. Please try again."
+        else:
+            error_message = "Something went wrong. We're looking into it. Please try again soon."
+            
+        flash(error_message, 'danger')
         return redirect(url_for('index'))
 
 @app.route('/<short_code>')
@@ -218,8 +239,20 @@ def api_shorten_url():
         
         # Set expiration date if provided
         expires_at = None
-        if expiration_days and isinstance(expiration_days, int) and expiration_days > 0:
-            expires_at = datetime.utcnow() + timedelta(days=expiration_days)
+        if expiration_days:
+            try:
+                # Handle both int and float values
+                days = float(expiration_days) if isinstance(expiration_days, (int, float, str)) else 0
+                if days > 0:
+                    # For minutes calculations (when days < 1)
+                    if days < 1:
+                        minutes = int(days * 24 * 60)  # Convert fraction of day to minutes
+                        expires_at = datetime.utcnow() + timedelta(minutes=minutes)
+                    else:
+                        # For regular days
+                        expires_at = datetime.utcnow() + timedelta(days=days)
+            except (ValueError, TypeError) as e:
+                logging.warning(f"Invalid API expiration value: {expiration_days}. Error: {e}")
         
         # Handle custom alias if provided
         if custom_alias:
