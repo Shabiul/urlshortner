@@ -15,25 +15,23 @@ document.addEventListener('DOMContentLoaded', function() {
     const copyBtn = document.getElementById('copy-btn');
     if (copyBtn) {
         copyBtn.addEventListener('click', function() {
-            const shortUrlElem = document.getElementById('short-url');
+            const shortUrlInput = document.getElementById('short-url-input');
             
-            if (shortUrlElem) {
-                const shortUrl = shortUrlElem.textContent || shortUrlElem.innerText;
+            if (shortUrlInput) {
+                // Select the text in the input
+                shortUrlInput.select();
+                shortUrlInput.setSelectionRange(0, 99999); // For mobile devices
                 
-                // Create a temporary input element
-                const tempInput = document.createElement('input');
-                tempInput.value = shortUrl;
-                document.body.appendChild(tempInput);
-                
-                // Select and copy the text
-                tempInput.select();
-                document.execCommand('copy');
-                
-                // Remove the temporary element
-                document.body.removeChild(tempInput);
-                
-                // Show success message
-                showAlert('Copied to clipboard!', 'success');
+                // Copy the text
+                navigator.clipboard.writeText(shortUrlInput.value)
+                    .then(() => {
+                        // Show success message
+                        showAlert('Copied to clipboard!', 'success');
+                    })
+                    .catch(err => {
+                        console.error('Failed to copy: ', err);
+                        showAlert('Failed to copy URL', 'danger');
+                    });
             }
         });
     }

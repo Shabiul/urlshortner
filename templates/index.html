@@ -68,6 +68,7 @@
                                 <th scope="col">Short URL</th>
                                 <th scope="col">Original URL</th>
                                 <th scope="col">Created</th>
+                                <th scope="col">Visits</th>
                                 <th scope="col">Actions</th>
                             </tr>
                         </thead>
@@ -84,7 +85,10 @@
                                         {{ url.original_url }}
                                     </a>
                                 </td>
-                                <td>{{ url.timestamp }}</td>
+                                <td>{{ url.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                                <td>
+                                    <span class="badge bg-secondary">{{ url.visits }}</span>
+                                </td>
                                 <td>
                                     <button class="btn btn-sm btn-outline-info copy-btn" 
                                             onclick="navigator.clipboard.writeText('{{ request.host_url }}{{ url.short_code }}').then(() => showAlert('Copied to clipboard!', 'success'))">
