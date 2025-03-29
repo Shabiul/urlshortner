@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>URL Shortener App</title>
+    <link rel="stylesheet" href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css">
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/js/all.min.js"></script>
+    <script defer src="/__/firebase/9.22.0/firebase-app-compat.js"></script>
+    <script defer src="/__/firebase/9.22.0/firebase-functions-compat.js"></script>
+    <script defer src="/__/firebase/init.js?useEmulator=true"></script>
+  </head>
+  <body>
+    <div class="container py-5">
+      <div class="text-center mb-5">
+        <h1 class="display-4 fw-bold">URL Shortener</h1>
+        <p class="lead">Shorten your long URLs for easy sharing</p>
+      </div>
+      
+      <div class="row justify-content-center">
+        <div class="col-md-8">
+          <div class="card shadow-sm url-card">
+            <div class="card-body p-4">
+              <form id="url-form">
+                <div class="input-group mb-3">
+                  <input type="url" class="form-control" id="url-input" 
+                         placeholder="Enter URL to shorten..." required>
+                  <button class="btn btn-primary" type="submit">
+                    <i class="fas fa-cut me-2"></i> Shorten
+                  </button>
+                </div>
+              </form>
+              
+              <div id="result-container" class="mt-4 d-none">
+                <div class="card bg-dark">
+                  <div class="card-body">
+                    <h5 class="card-title text-success">
+                      <i class="fas fa-check-circle me-2"></i> URL Shortened Successfully!
+                    </h5>
+                    <div class="d-flex align-items-center mb-2">
+                      <span class="text-muted me-2">Original URL:</span>
+                      <a id="original-url" href="#" target="_blank" class="text-truncate"></a>
+                    </div>
+                    <div class="input-group mb-3">
+                      <span class="input-group-text">Short URL</span>
+                      <input type="text" class="form-control" id="short-url-input" readonly>
+                      <button class="btn btn-outline-secondary" type="button" id="copy-btn">
+                        <i class="fas fa-copy"></i> Copy
+                      </button>
+                    </div>
+                    <div class="text-center">
+                      <a href="#" id="short-url" target="_blank" class="btn btn-sm btn-info">
+                        <i class="fas fa-external-link-alt me-1"></i> Open Short URL
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div id="error-container" class="alert alert-danger mt-3 d-none">
+                <i class="fas fa-exclamation-triangle me-2"></i> <span id="error-message"></span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div id="recent-urls-container" class="mt-5 d-none">
+        <div class="card shadow-sm">
+          <div class="card-header bg-primary bg-opacity-75">
+            <h3 class="mb-0"><i class="fas fa-history me-2"></i> Recently Shortened URLs</h3>
+          </div>
+          <div class="card-body">
+            <div class="table-responsive">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th scope="col">Short URL</th>
+                    <th scope="col">Original URL</th>
+                    <th scope="col">Created</th>
+                    <th scope="col">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="recent-urls-table">
+                  <!-- This will be populated with JavaScript -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- How it works section -->
+    <div class="container">
+      <div class="row mt-5">
+        <div class="col-md-12">
+          <h3 class="text-center mb-4"><i class="fas fa-info-circle me-2"></i> How It Works</h3>
+          <div class="row text-center">
+            <div class="col-md-4 mb-4">
+              <div class="card h-100 url-card">
+                <div class="card-body">
+                  <i class="fas fa-paste fa-3x mb-3 text-primary"></i>
+                  <h4>1. Paste your URL</h4>
+                  <p class="text-muted">Enter your long URL in the input field above.</p>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-4 mb-4">
+              <div class="card h-100 url-card">
+                <div class="card-body">
+                  <i class="fas fa-cut fa-3x mb-3 text-primary"></i>
+                  <h4>2. Shorten it</h4>
+                  <p class="text-muted">Click the "Shorten" button to generate a compact URL.</p>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-4 mb-4">
+              <div class="card h-100 url-card">
+                <div class="card-body">
+                  <i class="fas fa-share-alt fa-3x mb-3 text-primary"></i>
+                  <h4>3. Share your link</h4>
+                  <p class="text-muted">Copy and share your shortened URL with anyone!</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      document.addEventListener('DOMContentLoaded', function() {
+        let app;
+
+        firebase.app().functions().httpsCallable('app')()
+          .then((result) => {
+            // Handle initial data if any
+            if (result.data && result.data.recent_urls) {
+              displayRecentUrls(result.data.recent_urls);
+            }
+          })
+          .catch((error) => {
+            showError('Failed to initialize app: ' + error.message);
+          });
+
+        // URL Shortening Form
+        document.getElementById('url-form').addEventListener('submit', function(e) {
+          e.preventDefault();
+          
+          const longUrl = document.getElementById('url-input').value;
+          if (!longUrl) {
+            showError('Please enter a URL to shorten');
+            return;
+          }
+
+          // Show loading state
+          const submitBtn = this.querySelector('button[type="submit"]');
+          const originalBtnText = submitBtn.innerHTML;
+          submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+          submitBtn.disabled = true;
+          
+          // Call the Firebase Function
+          firebase.app().functions().httpsCallable('app')({
+            path: '/shorten',
+            method: 'POST',
+            body: { url: longUrl }
+          })
+          .then((result) => {
+            // Reset form state
+            submitBtn.innerHTML = originalBtnText;
+            submitBtn.disabled = false;
+            
+            if (result.data.error) {
+              showError(result.data.error);
+              return;
+            }
+            
+            // Show success
+            hideError();
+            document.getElementById('original-url').textContent = result.data.original_url;
+            document.getElementById('original-url').href = result.data.original_url;
+            document.getElementById('short-url-input').value = result.data.short_url;
+            document.getElementById('short-url').href = result.data.short_url;
+            document.getElementById('result-container').classList.remove('d-none');
+            
+            // Update recent URLs
+            if (result.data.recent_urls) {
+              displayRecentUrls(result.data.recent_urls);
+            }
+          })
+          .catch((error) => {
+            submitBtn.innerHTML = originalBtnText;
+            submitBtn.disabled = false;
+            showError('Error: ' + error.message);
+          });
+        });
+
+        // Copy button
+        document.getElementById('copy-btn').addEventListener('click', function() {
+          const shortUrlInput = document.getElementById('short-url-input');
+          shortUrlInput.select();
+          document.execCommand('copy');
+          
+          // Show copied tooltip
+          this.innerHTML = '<i class="fas fa-check"></i> Copied!';
+          setTimeout(() => {
+            this.innerHTML = '<i class="fas fa-copy"></i> Copy';
+          }, 2000);
+        });
+
+        function showError(message) {
+          const errorContainer = document.getElementById('error-container');
+          document.getElementById('error-message').textContent = message;
+          errorContainer.classList.remove('d-none');
+        }
+
+        function hideError() {
+          document.getElementById('error-container').classList.add('d-none');
+        }
+
+        function displayRecentUrls(urls) {
+          if (!urls || urls.length === 0) return;
+          
+          const tableBody = document.getElementById('recent-urls-table');
+          tableBody.innerHTML = '';
+          
+          urls.forEach(url => {
+            const row = document.createElement('tr');
+            
+            // Short URL column
+            const shortUrlCell = document.createElement('td');
+            const shortUrlLink = document.createElement('a');
+            shortUrlLink.href = `https://your-firebase-app.web.app/${url.short_code}`;
+            shortUrlLink.target = '_blank';
+            shortUrlLink.textContent = `https://your-firebase-app.web.app/${url.short_code}`;
+            shortUrlCell.appendChild(shortUrlLink);
+            
+            // Original URL column
+            const origUrlCell = document.createElement('td');
+            origUrlCell.className = 'text-truncate';
+            origUrlCell.style.maxWidth = '250px';
+            const origUrlLink = document.createElement('a');
+            origUrlLink.href = url.original_url;
+            origUrlLink.target = '_blank';
+            origUrlLink.title = url.original_url;
+            origUrlLink.textContent = url.original_url;
+            origUrlCell.appendChild(origUrlLink);
+            
+            // Timestamp column
+            const timestampCell = document.createElement('td');
+            timestampCell.textContent = url.timestamp;
+            
+            // Actions column
+            const actionsCell = document.createElement('td');
+            const copyBtn = document.createElement('button');
+            copyBtn.className = 'btn btn-sm btn-outline-info';
+            copyBtn.innerHTML = '<i class="fas fa-copy"></i>';
+            copyBtn.onclick = function() {
+              navigator.clipboard.writeText(`https://your-firebase-app.web.app/${url.short_code}`)
+                .then(() => {
+                  copyBtn.innerHTML = '<i class="fas fa-check"></i>';
+                  setTimeout(() => {
+                    copyBtn.innerHTML = '<i class="fas fa-copy"></i>';
+                  }, 2000);
+                });
+            };
+            actionsCell.appendChild(copyBtn);
+            
+            // Add all cells to the row
+            row.appendChild(shortUrlCell);
+            row.appendChild(origUrlCell);
+            row.appendChild(timestampCell);
+            row.appendChild(actionsCell);
+            
+            // Add row to table
+            tableBody.appendChild(row);
+          });
+          
+          // Show the recent URLs container
+          document.getElementById('recent-urls-container').classList.remove('d-none');
+        }
+      });
+
+      function showAlert(message, type) {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed top-0 start-50 translate-middle-x mt-3`;
+        alertDiv.setAttribute('role', 'alert');
+        alertDiv.innerHTML = `
+          ${message}
+          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        `;
+        document.body.appendChild(alertDiv);
+        
+        setTimeout(() => {
+          alertDiv.remove();
+        }, 3000);
+      }
+    </script>
+  </body>
+</html>
