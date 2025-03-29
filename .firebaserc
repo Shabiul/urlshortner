@@ -2,4 +2,24 @@
   "projects": {
     "default": "url-shortener-app"
   }
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.5.0/firebase-app.js";
+  import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.5.0/firebase-analytics.js";
+  // TODO: Add SDKs for Firebase products that you want to use
+  // https://firebase.google.com/docs/web/setup#available-libraries
+
+  // Your web app's Firebase configuration
+  // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+  const firebaseConfig = {
+    apiKey: "AIzaSyCTq09I7bWk4c_dx9EEYaj-KmZfKXvHGOA",
+    authDomain: "url-short-98c3a.firebaseapp.com",
+    projectId: "url-short-98c3a",
+    storageBucket: "url-short-98c3a.firebasestorage.app",
+    messagingSenderId: "548641602043",
+    appId: "1:548641602043:web:8587153731c2e5ebc8f35e",
+    measurementId: "G-QVVKLFDE1Z"
+  };
+
+  // Initialize Firebase
+  const app = initializeApp(firebaseConfig);
+  const analytics = getAnalytics(app);
 }

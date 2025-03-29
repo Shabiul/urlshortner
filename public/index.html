@@ -231,9 +231,10 @@
             // Short URL column
             const shortUrlCell = document.createElement('td');
             const shortUrlLink = document.createElement('a');
-            shortUrlLink.href = `https://your-firebase-app.web.app/${url.short_code}`;
+            const baseUrl = window.location.origin;
+            shortUrlLink.href = `${baseUrl}/${url.short_code}`;
             shortUrlLink.target = '_blank';
-            shortUrlLink.textContent = `https://your-firebase-app.web.app/${url.short_code}`;
+            shortUrlLink.textContent = `${baseUrl}/${url.short_code}`;
             shortUrlCell.appendChild(shortUrlLink);
             
             // Original URL column
@@ -257,7 +258,7 @@
             copyBtn.className = 'btn btn-sm btn-outline-info';
             copyBtn.innerHTML = '<i class="fas fa-copy"></i>';
             copyBtn.onclick = function() {
-              navigator.clipboard.writeText(`https://your-firebase-app.web.app/${url.short_code}`)
+              navigator.clipboard.writeText(`${baseUrl}/${url.short_code}`)
                 .then(() => {
                   copyBtn.innerHTML = '<i class="fas fa-check"></i>';
                   setTimeout(() => {

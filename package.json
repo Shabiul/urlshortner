@@ -10,6 +10,9 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "firebase-tools": "^14.0.1"
+    "express": "^4.21.2",
+    "firebase-admin": "^13.2.0",
+    "firebase-tools": "^14.0.1",
+    "http-proxy-middleware": "^3.0.3"
   }
 }
