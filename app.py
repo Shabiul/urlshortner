@@ -43,11 +43,11 @@ def shorten_url():
         
         # Generate short URL
         short_code = shortener.shorten(long_url)
+        short_url = request.host_url + short_code
         
-        # Just return the code instead of full URL
         flash(f'URL shortened successfully!', 'success')
         return render_template('index.html', 
-                              short_code=short_code, 
+                              short_url=short_url, 
                               original_url=long_url, 
                               recent_urls=shortener.get_recent_urls(10))
     

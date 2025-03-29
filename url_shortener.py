@@ -17,7 +17,7 @@ class URLShortener:
         self.url_to_code = {}  # Maps original URLs to short codes
         self.code_to_url = {}  # Maps short codes to original URLs
         self.recent_urls = deque(maxlen=100)  # Store recently shortened URLs
-        self.code_length = 10  # Length of short codes
+        self.code_length = 6  # Length of short codes
         logging.debug("URL Shortener initialized")
     
     def shorten(self, url):
