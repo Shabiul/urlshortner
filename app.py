@@ -17,9 +17,37 @@ app = Flask(__name__)
 app.secret_key = os.environ.get("SESSION_SECRET", "default-secret-key-for-development")
 
 # Configure the SQLAlchemy database
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'postgresql://postgres:postgres@localhost:5432/postgres')
+# Fix for SQLAlchemy postgres:// vs postgresql:// issue in some environments
+database_url = os.environ.get('DATABASE_URL', 'postgresql://postgres:postgres@localhost:5432/postgres')
+if database_url.startswith("postgres://"):
+    database_url = database_url.replace("postgres://", "postgresql://", 1)
+
+app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+# Configure database connection pooling for high traffic
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    'pool_size': 10,  # Maximum number of database connections to keep
+    'pool_recycle': 300,  # Recycle connections after 5 minutes
+    'pool_pre_ping': True,  # Check connection validity before use
+    'max_overflow': 20,  # Allow up to 20 connections beyond pool_size when needed
+    'connect_args': {
+        'connect_timeout': 10,  # Set connection timeout to 10 seconds
+        'application_name': 'url_shortener',  # Identify application in database logs
+    },
+    'pool_timeout': 30,  # Maximum time to wait for a connection from the pool
+    'echo_pool': True if app.debug else False  # Echo pool activity to logs in debug mode
+}
+
 db = SQLAlchemy(app)
+
+# Create database tables if they don't exist
+with app.app_context():
+    try:
+        db.create_all()
+        logging.info("Database tables created successfully")
+    except Exception as e:
+        logging.error(f"Error creating database tables: {str(e)}")
 
 # Define URL model
 class URL(db.Model):
@@ -42,9 +70,7 @@ class URL(db.Model):
             return False
         return datetime.utcnow() > self.expires_at
 
-# Create database tables if they don't exist
-with app.app_context():
-    db.create_all()
+# Database tables are already created at app initialization
 
 # URL Shortener functions
 def generate_short_code(length=6):
@@ -337,20 +363,7 @@ def health_check():
     """Health check endpoint."""
     return jsonify({'status': 'ok'})
 
-# Add configuration for database connection pooling for high traffic
-# This helps with handling high load by reusing database connections
-app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
-    'pool_size': 10,  # Maximum number of database connections to keep
-    'pool_recycle': 300,  # Recycle connections after 5 minutes
-    'pool_pre_ping': True,  # Check connection validity before use
-    'max_overflow': 20,  # Allow up to 20 connections beyond pool_size when needed
-    'connect_args': {
-        'connect_timeout': 10,  # Set connection timeout to 10 seconds
-        'application_name': 'url_shortener',  # Identify application in database logs
-    },
-    'pool_timeout': 30,  # Maximum time to wait for a connection from the pool
-    'echo_pool': True if app.debug else False  # Echo pool activity to logs in debug mode
-}
+# Connection pooling configuration is already defined at the top of the file
 
 # Add a cleanup job route to remove or archive expired URLs
 # This can be called periodically by a cron job or scheduler
