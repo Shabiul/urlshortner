@@ -99,6 +99,13 @@
             </div>
         </div>
         
+        {% if db_error %}
+        <div class="alert alert-warning shadow-sm">
+            <i class="fas fa-exclamation-triangle me-2"></i> 
+            There was a temporary database connection issue. Your previous shortened URLs will appear here when the connection is restored.
+        </div>
+        {% endif %}
+        
         {% if recent_urls %}
         <div class="card shadow-sm">
             <div class="card-header bg-primary bg-opacity-75">

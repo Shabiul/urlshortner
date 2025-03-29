@@ -60,8 +60,13 @@ def generate_short_code(length=6):
 @app.route('/')
 def index():
     """Render the main page with URL shortening form and history."""
-    recent_urls = URL.query.order_by(URL.created_at.desc()).limit(10).all()
-    return render_template('index.html', recent_urls=recent_urls)
+    try:
+        recent_urls = URL.query.order_by(URL.created_at.desc()).limit(10).all()
+        return render_template('index.html', recent_urls=recent_urls)
+    except Exception as e:
+        logging.error(f"Database error in index route: {str(e)}")
+        # Return page without recent URLs if database is temporarily unavailable
+        return render_template('index.html', recent_urls=[], db_error=True)
 
 @app.route('/shorten', methods=['POST'])
 def shorten_url():
@@ -305,7 +310,13 @@ app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
     'pool_size': 10,  # Maximum number of database connections to keep
     'pool_recycle': 300,  # Recycle connections after 5 minutes
     'pool_pre_ping': True,  # Check connection validity before use
-    'max_overflow': 20  # Allow up to 20 connections beyond pool_size when needed
+    'max_overflow': 20,  # Allow up to 20 connections beyond pool_size when needed
+    'connect_args': {
+        'connect_timeout': 10,  # Set connection timeout to 10 seconds
+        'application_name': 'url_shortener',  # Identify application in database logs
+    },
+    'pool_timeout': 30,  # Maximum time to wait for a connection from the pool
+    'echo_pool': True if app.debug else False  # Echo pool activity to logs in debug mode
 }
 
 # Add a cleanup job route to remove or archive expired URLs
