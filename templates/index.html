@@ -55,19 +55,42 @@
                                     </div>
                                 </div>
                                 <div class="col-md-6 mb-3">
-                                    <label for="expiration-input" class="form-label"><strong>Link Expiration</strong></label>
-                                    <select id="expiration-input" name="expiration" class="form-select">
-                                        <option value="" selected>Never expire</option>
-                                        <option value="0.00069">1 minute</option>
-                                        <option value="0.0069">10 minutes</option>
-                                        <option value="1">1 day</option>
-                                        <option value="7">7 days</option>
-                                        <option value="30">30 days</option>
-                                        <option value="90">90 days</option>
-                                        <option value="365">1 year</option>
-                                    </select>
+                                    <label for="expiration-type" class="form-label"><strong>Link Expiration</strong></label>
+                                    <div class="mb-2">
+                                        <select id="expiration-type" name="expiration_type" class="form-select">
+                                            <option value="never" selected>Never expire</option>
+                                            <option value="date">Expire after time</option>
+                                            <option value="visits">Expire after visits</option>
+                                            <option value="both">Expire after either time or visits</option>
+                                        </select>
+                                    </div>
+                                    
+                                    <!-- Time-based expiration options -->
+                                    <div id="time-expiration" class="mb-2 expiration-option">
+                                        <label for="expiration-input" class="form-label small">Time until expiration:</label>
+                                        <select id="expiration-input" name="expiration" class="form-select form-select-sm">
+                                            <option value="0.00069">1 minute</option>
+                                            <option value="0.0069">10 minutes</option>
+                                            <option value="0.0417">1 hour</option>
+                                            <option value="0.25">6 hours</option>
+                                            <option value="0.5">12 hours</option>
+                                            <option value="1" selected>1 day</option>
+                                            <option value="7">7 days</option>
+                                            <option value="30">30 days</option>
+                                            <option value="90">90 days</option>
+                                            <option value="365">1 year</option>
+                                        </select>
+                                    </div>
+                                    
+                                    <!-- Visits-based expiration options -->
+                                    <div id="visits-expiration" class="mb-2 expiration-option">
+                                        <label for="max-visits" class="form-label small">Maximum visits:</label>
+                                        <input type="number" id="max-visits" name="max_visits" class="form-control form-control-sm" 
+                                               min="1" max="10000" value="100" placeholder="Number of visits">
+                                    </div>
+                                    
                                     <small class="form-text text-muted">
-                                        Set a time limit for your shortened URL. After expiration, the link will no longer work.
+                                        Set conditions when your shortened URL will expire and stop working.
                                     </small>
                                 </div>
                             </div>
@@ -75,8 +98,9 @@
                     </div>
                     
                     <script>
-                        // Toggle custom URL section visibility based on checkbox
+                        // DOM ready event
                         document.addEventListener('DOMContentLoaded', function() {
+                            // Toggle custom URL section visibility based on checkbox
                             const toggle = document.getElementById('customUrlToggle');
                             const aliasInput = document.getElementById('alias-input');
                             
@@ -93,6 +117,37 @@
                                     aliasInput.focus();
                                 }
                             });
+                            
+                            // Toggle expiration options based on expiration type
+                            const expirationTypeSelect = document.getElementById('expiration-type');
+                            const timeExpirationDiv = document.getElementById('time-expiration');
+                            const visitsExpirationDiv = document.getElementById('visits-expiration');
+                            
+                            // Initially hide both expiration options if "never" is selected
+                            function updateExpirationOptions() {
+                                const selectedType = expirationTypeSelect.value;
+                                
+                                // Show/hide based on selected type
+                                if (selectedType === 'never') {
+                                    timeExpirationDiv.style.display = 'none';
+                                    visitsExpirationDiv.style.display = 'none';
+                                } else if (selectedType === 'date') {
+                                    timeExpirationDiv.style.display = 'block';
+                                    visitsExpirationDiv.style.display = 'none';
+                                } else if (selectedType === 'visits') {
+                                    timeExpirationDiv.style.display = 'none';
+                                    visitsExpirationDiv.style.display = 'block';
+                                } else if (selectedType === 'both') {
+                                    timeExpirationDiv.style.display = 'block';
+                                    visitsExpirationDiv.style.display = 'block';
+                                }
+                            }
+                            
+                            // Set initial visibility based on default selection
+                            updateExpirationOptions();
+                            
+                            // Add event listener for the expiration type change
+                            expirationTypeSelect.addEventListener('change', updateExpirationOptions);
                         });
                     </script>
                 </form>
@@ -155,9 +210,9 @@
                                 <th scope="col">Short URL</th>
                                 <th scope="col">Original URL</th>
                                 <th scope="col">Created</th>
-                                <th scope="col">Expires</th>
+                                <th scope="col">Expiration</th>
                                 <th scope="col">Visits</th>
-                                <th scope="col">Type</th>
+                                <th scope="col">Health</th>
                                 <th scope="col">Actions</th>
                             </tr>
                         </thead>
@@ -176,34 +231,52 @@
                                 </td>
                                 <td>{{ url.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
                                 <td>
-                                    {% if url.expires_at %}
-                                        {% if url.is_expired() %}
-                                            <span class="badge bg-danger">Expired</span>
-                                        {% else %}
-                                            {# Show time for expirations within 24 hours #}
-                                            {% set time_diff = (url.expires_at - url.created_at).total_seconds() / 3600 %}
-                                            {% if time_diff < 24 %}
-                                                <span class="badge bg-info" title="Expires on {{ url.expires_at.strftime('%Y-%m-%d %H:%M:%S') }}">
-                                                    {{ url.expires_at.strftime('%H:%M:%S') }}
-                                                </span>
-                                            {% else %}
-                                                <span class="badge bg-info" title="Expires on {{ url.expires_at.strftime('%Y-%m-%d %H:%M:%S') }}">
-                                                    {{ url.expires_at.strftime('%Y-%m-%d') }}
+                                    {% if url.is_expired() %}
+                                        <span class="badge bg-danger">Expired</span>
+                                    {% else %}
+                                        <div>
+                                            {% if url.expiration_type in ['date', 'both'] and url.expires_at %}
+                                                {# Show time for expirations within 24 hours #}
+                                                {% set time_diff = (url.expires_at - url.created_at).total_seconds() / 3600 %}
+                                                {% if time_diff < 24 %}
+                                                    <span class="badge bg-info" title="Expires on {{ url.expires_at.strftime('%Y-%m-%d %H:%M:%S') }}">
+                                                        <i class="fas fa-calendar-alt me-1"></i> {{ url.expires_at.strftime('%H:%M:%S') }}
+                                                    </span>
+                                                {% else %}
+                                                    <span class="badge bg-info" title="Expires on {{ url.expires_at.strftime('%Y-%m-%d %H:%M:%S') }}">
+                                                        <i class="fas fa-calendar-alt me-1"></i> {{ url.expires_at.strftime('%Y-%m-%d') }}
+                                                    </span>
+                                                {% endif %}
+                                            {% endif %}
+                                            
+                                            {% if url.expiration_type in ['visits', 'both'] and url.max_visits %}
+                                                <span class="badge bg-warning text-dark" title="Will expire after {{ url.max_visits }} visits">
+                                                    <i class="fas fa-eye me-1"></i> {{ url.visits }}/{{ url.max_visits }}
                                                 </span>
                                             {% endif %}
-                                        {% endif %}
-                                    {% else %}
-                                        <span class="badge bg-success">Never</span>
+                                            
+                                            {% if url.expiration_type == 'never' %}
+                                                <span class="badge bg-success">Never</span>
+                                            {% endif %}
+                                        </div>
                                     {% endif %}
                                 </td>
                                 <td>
                                     <span class="badge bg-secondary">{{ url.visits }}</span>
                                 </td>
                                 <td>
-                                    {% if url.is_custom %}
-                                        <span class="badge bg-warning text-dark">Custom</span>
+                                    {% if url.is_active %}
+                                        <span class="badge bg-success" title="Last checked: {{ url.last_checked.strftime('%Y-%m-%d %H:%M:%S') if url.last_checked else 'Not checked yet' }}">
+                                            <i class="fas fa-check me-1"></i> Active
+                                        </span>
+                                    {% elif url.is_active == False %}
+                                        <span class="badge bg-danger" title="Status code: {{ url.status_code or 'Unknown' }}">
+                                            <i class="fas fa-times me-1"></i> Inactive
+                                        </span>
                                     {% else %}
-                                        <span class="badge bg-secondary">Auto</span>
+                                        <span class="badge bg-secondary">
+                                            <i class="fas fa-question me-1"></i> Unknown
+                                        </span>
                                     {% endif %}
                                 </td>
                                 <td>

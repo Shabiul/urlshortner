@@ -57,14 +57,74 @@ class URL(db.Model):
     visits = db.Column(db.Integer, default=0)
     is_custom = db.Column(db.Boolean, default=False)
     
+    # Health monitoring
+    last_checked = db.Column(db.DateTime, nullable=True)
+    is_active = db.Column(db.Boolean, default=True)
+    status_code = db.Column(db.Integer, nullable=True)
+    response_time = db.Column(db.Float, nullable=True)  # in milliseconds
+    
+    # Custom expiration settings
+    expiration_type = db.Column(db.String(20), default='never')  # never, date, visits, both
+    max_visits = db.Column(db.Integer, nullable=True)  # URL expires after this many visits
+    
     def __repr__(self):
         return f'<URL {self.short_code}>'
         
     def is_expired(self):
         """Check if the URL has expired."""
-        if self.expires_at is None:
-            return False
-        return datetime.utcnow() > self.expires_at
+        # Check time-based expiration
+        time_expired = False
+        if self.expires_at is not None:
+            time_expired = datetime.utcnow() > self.expires_at
+            
+        # Check visits-based expiration
+        visits_expired = False
+        if self.max_visits is not None and self.expiration_type in ['visits', 'both']:
+            visits_expired = self.visits >= self.max_visits
+            
+        # URL is expired if either condition is met for 'both' type,
+        # or if the specific condition is met for 'date' or 'visits' types
+        if self.expiration_type == 'both':
+            return time_expired or visits_expired
+        elif self.expiration_type == 'date':
+            return time_expired
+        elif self.expiration_type == 'visits':
+            return visits_expired
+        
+        # 'never' type never expires
+        return False
+    
+    def get_health_status(self):
+        """Get health status description of the URL."""
+        if not self.is_active:
+            return "Inactive"
+        if not self.last_checked:
+            return "Not checked"
+        if self.status_code is None:
+            return "Unknown"
+        
+        if 200 <= self.status_code < 300:
+            return "Healthy"
+        elif 300 <= self.status_code < 400:
+            return "Redirecting"
+        elif 400 <= self.status_code < 500:
+            return "Client Error"
+        elif 500 <= self.status_code < 600:
+            return "Server Error"
+        else:
+            return f"Status: {self.status_code}"
+    
+    def get_response_time_category(self):
+        """Get response time category (fast, medium, slow)."""
+        if self.response_time is None:
+            return "Unknown"
+        
+        if self.response_time < 300:  # Less than 300ms
+            return "Fast"
+        elif self.response_time < 1000:  # Less than 1 second
+            return "Medium"
+        else:  # 1 second or more
+            return "Slow"
 
 # Database tables are already created at app initialization
 
@@ -95,9 +155,12 @@ def shorten_url():
     """Handle URL shortening form submission."""
     long_url = request.form.get('url', '')
     custom_alias = request.form.get('alias', '').strip()
+    expiration_type = request.form.get('expiration_type', 'never')
     expiration_days = request.form.get('expiration', '')
+    max_visits = request.form.get('max_visits', '')
     
-    logging.debug(f"Received URL shortening request for: {long_url}, alias: {custom_alias}, expiration: {expiration_days}")
+    logging.debug(f"Received URL shortening request for: {long_url}, alias: {custom_alias}, " +
+                 f"expiration_type: {expiration_type}, expiration: {expiration_days}, max_visits: {max_visits}")
     
     # Validate URL
     if not long_url:
@@ -117,7 +180,10 @@ def shorten_url():
         
         # Set expiration date if provided
         expires_at = None
-        if expiration_days:
+        max_visits_count = None
+        
+        # Process based on expiration type
+        if expiration_type in ['date', 'both'] and expiration_days:
             try:
                 # Convert to float to support decimal values (for minutes)
                 days = float(expiration_days)
@@ -132,6 +198,19 @@ def shorten_url():
             except ValueError:
                 # If conversion fails, no expiration will be set
                 logging.warning(f"Invalid expiration value: {expiration_days}")
+        
+        # Process visit-based expiration
+        if expiration_type in ['visits', 'both'] and max_visits:
+            try:
+                max_visits_count = int(max_visits)
+                if max_visits_count <= 0:
+                    max_visits_count = None
+                    expiration_type = 'date' if expiration_type == 'both' else 'never'
+                    logging.warning(f"Invalid max visits value: {max_visits}, must be > 0")
+            except ValueError:
+                max_visits_count = None
+                expiration_type = 'date' if expiration_type == 'both' else 'never'
+                logging.warning(f"Invalid max visits value: {max_visits}, must be an integer")
         
         # Handle custom alias if provided
         if custom_alias:
@@ -184,7 +263,9 @@ def shorten_url():
                 original_url=long_url,
                 short_code=short_code,
                 expires_at=expires_at,
-                is_custom=is_custom
+                is_custom=is_custom,
+                expiration_type=expiration_type,
+                max_visits=max_visits_count
             )
             db.session.add(new_url)
             db.session.commit()
@@ -272,10 +353,25 @@ def api_shorten_url():
         # Handle optional parameters
         custom_alias = data.get('alias', '').strip()
         expiration_days = data.get('expiration')
+        expiration_type = data.get('expiration_type', 'never')
+        max_visits = data.get('max_visits')
         
+        # Process max visits if provided
+        max_visits_count = None
+        if expiration_type in ['visits', 'both'] and max_visits:
+            try:
+                max_visits_count = int(max_visits)
+                if max_visits_count <= 0:
+                    max_visits_count = None
+                    expiration_type = 'date' if expiration_type == 'both' else 'never'
+            except (ValueError, TypeError) as e:
+                logging.warning(f"Invalid API max_visits value: {max_visits}. Error: {e}")
+                max_visits_count = None
+                expiration_type = 'date' if expiration_type == 'both' else 'never'
+                
         # Set expiration date if provided
         expires_at = None
-        if expiration_days:
+        if expiration_type in ['date', 'both'] and expiration_days:
             try:
                 # Handle both int and float values
                 days = float(expiration_days) if isinstance(expiration_days, (int, float, str)) else 0
@@ -336,7 +432,9 @@ def api_shorten_url():
                 original_url=url,
                 short_code=short_code,
                 expires_at=expires_at,
-                is_custom=is_custom
+                is_custom=is_custom,
+                expiration_type=expiration_type,
+                max_visits=max_visits_count
             )
             db.session.add(new_url)
             db.session.commit()
@@ -349,7 +447,9 @@ def api_shorten_url():
             'short_code': short_code,
             'short_url': short_url,
             'expires_at': expires_at.isoformat() if expires_at else None,
-            'is_custom': is_custom
+            'is_custom': is_custom,
+            'expiration_type': expiration_type,
+            'max_visits': max_visits_count
         }
         
         return jsonify(response), 201
@@ -373,7 +473,13 @@ def api_url_status(short_code):
         'expires_at': url_entry.expires_at.isoformat() if url_entry.expires_at else None,
         'visits': url_entry.visits,
         'is_custom': url_entry.is_custom,
-        'is_expired': url_entry.is_expired()
+        'is_expired': url_entry.is_expired(),
+        'expiration_type': url_entry.expiration_type,
+        'max_visits': url_entry.max_visits,
+        'last_checked': url_entry.last_checked.isoformat() if url_entry.last_checked else None,
+        'is_active': url_entry.is_active,
+        'status_code': url_entry.status_code,
+        'response_time': url_entry.response_time
     }
     
     return jsonify(response), 200

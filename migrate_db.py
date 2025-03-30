@@ -30,6 +30,26 @@ def migrate_database():
                 
             if 'is_custom' not in column_names:
                 missing_columns.append("ALTER TABLE urls ADD COLUMN is_custom BOOLEAN DEFAULT false;")
+                
+            # Health monitoring columns
+            if 'last_checked' not in column_names:
+                missing_columns.append("ALTER TABLE urls ADD COLUMN last_checked TIMESTAMP;")
+                
+            if 'is_active' not in column_names:
+                missing_columns.append("ALTER TABLE urls ADD COLUMN is_active BOOLEAN DEFAULT true;")
+                
+            if 'status_code' not in column_names:
+                missing_columns.append("ALTER TABLE urls ADD COLUMN status_code INTEGER;")
+                
+            if 'response_time' not in column_names:
+                missing_columns.append("ALTER TABLE urls ADD COLUMN response_time FLOAT;")
+                
+            # Custom expiration settings
+            if 'expiration_type' not in column_names:
+                missing_columns.append("ALTER TABLE urls ADD COLUMN expiration_type VARCHAR(20) DEFAULT 'never';")
+                
+            if 'max_visits' not in column_names:
+                missing_columns.append("ALTER TABLE urls ADD COLUMN max_visits INTEGER;")
             
             # Apply missing column migrations
             if missing_columns:
