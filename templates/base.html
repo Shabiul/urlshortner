@@ -122,10 +122,6 @@
         .copy-btn {
             cursor: pointer;
         }
-        .footer {
-            margin-top: 2rem;
-            padding: 1rem 0;
-        }
     </style>
 </head>
 <body>
@@ -195,15 +191,7 @@
             {% block content %}{% endblock %}
         </main>
         
-        <footer class="footer text-center text-muted">
-            <div class="container">
-                <div class="mb-3">
-                    <h5>API Access</h5>
-                    <p>For developers: Access our API at <code>POST /api/shorten</code> with JSON payload: <code>{"url": "https://example.com", "alias": "custom", "expiration": 30}</code></p>
-                </div>
-                <p>&copy; 2025 URL Shortener | Made with <i class="fas fa-heart text-danger"></i> and Flask</p>
-            </div>
-        </footer>
+
     </div>
     
     <!-- Bootstrap JS Bundle -->
