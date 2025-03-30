@@ -4,10 +4,12 @@ import logging
 import random
 import string
 from datetime import datetime, timedelta
-from flask import Flask, render_template, request, redirect, url_for, flash, abort, jsonify
+from flask import Flask, render_template, request, redirect, url_for, flash, abort, jsonify, session
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.exc import IntegrityError
 from urllib.parse import urlparse
+from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
+from werkzeug.security import generate_password_hash, check_password_hash
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -36,6 +38,38 @@ app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
 }
 
 db = SQLAlchemy(app)
+
+# Set up Flask-Login
+login_manager = LoginManager(app)
+login_manager.login_view = 'login'
+login_manager.login_message_category = 'info'
+
+# User model for authentication
+class User(UserMixin, db.Model):
+    __tablename__ = 'users'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(64), unique=True, nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=False)
+    password_hash = db.Column(db.String(256), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    is_active = db.Column(db.Boolean, default=True)
+    
+    # Relationship with URLs
+    urls = db.relationship('URL', backref='user', lazy=True, cascade="all, delete-orphan")
+    
+    def __repr__(self):
+        return f'<User {self.username}>'
+    
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
+        
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
+
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
 
 # Create database tables if they don't exist
 with app.app_context():
@@ -66,6 +100,15 @@ class URL(db.Model):
     # Custom expiration settings
     expiration_type = db.Column(db.String(20), default='never')  # never, date, visits, both
     max_visits = db.Column(db.Integer, nullable=True)  # URL expires after this many visits
+    
+    # User relationship
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    
+    # Analytics fields
+    referer = db.Column(db.String(2048), nullable=True)
+    user_agent = db.Column(db.String(512), nullable=True)
+    ip_address = db.Column(db.String(45), nullable=True)  # IPv6 addresses can be up to 45 chars
+    last_visited = db.Column(db.DateTime, nullable=True)  # When the URL was last accessed
     
     def __repr__(self):
         return f'<URL {self.short_code}>'
@@ -265,7 +308,9 @@ def shorten_url():
                 expires_at=expires_at,
                 is_custom=is_custom,
                 expiration_type=expiration_type,
-                max_visits=max_visits_count
+                max_visits=max_visits_count,
+                # Associate with current user if logged in
+                user_id=current_user.id if current_user.is_authenticated else None
             )
             db.session.add(new_url)
             db.session.commit()
@@ -315,8 +360,17 @@ def redirect_to_url(short_code):
         flash('This shortened URL has expired.', 'warning')
         return render_template('index.html', error="Sorry, this shortened URL has expired."), 410
         
-    # Increment visit counter
+    # Increment visit counter and record analytics
     url_entry.visits += 1
+    
+    # Record analytics information
+    url_entry.referer = request.referrer
+    url_entry.user_agent = request.user_agent.string if request.user_agent else None
+    # For privacy reasons, only store partial IP address in production
+    url_entry.ip_address = request.remote_addr
+    # Update last_visited timestamp
+    url_entry.last_visited = datetime.utcnow()
+    
     db.session.commit()
     
     logging.debug(f"URL expanded: {short_code} -> {url_entry.original_url}")
@@ -434,7 +488,9 @@ def api_shorten_url():
                 expires_at=expires_at,
                 is_custom=is_custom,
                 expiration_type=expiration_type,
-                max_visits=max_visits_count
+                max_visits=max_visits_count,
+                # Associate with current user if logged in via API
+                user_id=current_user.id if current_user.is_authenticated else None
             )
             db.session.add(new_url)
             db.session.commit()
@@ -479,7 +535,14 @@ def api_url_status(short_code):
         'last_checked': url_entry.last_checked.isoformat() if url_entry.last_checked else None,
         'is_active': url_entry.is_active,
         'status_code': url_entry.status_code,
-        'response_time': url_entry.response_time
+        'response_time': url_entry.response_time,
+        # Include analytics information
+        'analytics': {
+            'referer': url_entry.referer,
+            'user_agent': url_entry.user_agent,
+            'last_visited': url_entry.last_visited.isoformat() if getattr(url_entry, 'last_visited', None) else None,
+            'user_id': url_entry.user_id
+        }
     }
     
     return jsonify(response), 200
@@ -539,6 +602,92 @@ def cleanup_expired_urls():
     except Exception as e:
         logging.error(f"Cleanup error: {str(e)}")
         return jsonify({'error': str(e)}), 500
+
+# User Authentication Routes
+from forms import LoginForm, RegistrationForm
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    """User registration route."""
+    if current_user.is_authenticated:
+        return redirect(url_for('index'))
+    
+    form = RegistrationForm()
+    if form.validate_on_submit():
+        user = User(username=form.username.data, email=form.email.data)
+        user.set_password(form.password.data)
+        
+        try:
+            db.session.add(user)
+            db.session.commit()
+            flash('Your account has been created! You can now log in.', 'success')
+            return redirect(url_for('login'))
+        except IntegrityError:
+            db.session.rollback()
+            flash('That username or email is already taken. Please choose a different one.', 'danger')
+    
+    return render_template('register.html', title='Register', form=form)
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    """User login route."""
+    if current_user.is_authenticated:
+        return redirect(url_for('index'))
+    
+    form = LoginForm()
+    if form.validate_on_submit():
+        user = User.query.filter_by(email=form.email.data).first()
+        
+        if user and user.check_password(form.password.data):
+            login_user(user, remember=form.remember_me.data)
+            next_page = request.args.get('next')
+            return redirect(next_page) if next_page else redirect(url_for('dashboard'))
+        else:
+            flash('Login unsuccessful. Please check your email and password.', 'danger')
+    
+    return render_template('login.html', title='Login', form=form)
+
+@app.route('/logout')
+def logout():
+    """User logout route."""
+    logout_user()
+    flash('You have been logged out.', 'info')
+    return redirect(url_for('index'))
+
+@app.route('/dashboard')
+@login_required
+def dashboard():
+    """User dashboard showing their shortened URLs."""
+    urls = URL.query.filter_by(user_id=current_user.id).order_by(URL.created_at.desc()).all()
+    return render_template('dashboard.html', title='Dashboard', urls=urls)
+
+@app.route('/account', methods=['GET', 'POST'])
+@login_required
+def account():
+    """User account management page."""
+    return render_template('account.html', title='Account')
+
+@app.route('/url/delete/<int:url_id>', methods=['POST'])
+@login_required
+def delete_url(url_id):
+    """Delete a user's URL."""
+    url = URL.query.get_or_404(url_id)
+    
+    # Check if the URL belongs to the current user
+    if url.user_id != current_user.id:
+        flash('You do not have permission to delete this URL.', 'danger')
+        return redirect(url_for('dashboard'))
+    
+    try:
+        db.session.delete(url)
+        db.session.commit()
+        flash('Your URL has been deleted.', 'success')
+    except Exception as e:
+        db.session.rollback()
+        logging.error(f"Error deleting URL: {str(e)}")
+        flash('An error occurred while deleting the URL.', 'danger')
+    
+    return redirect(url_for('dashboard'))
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

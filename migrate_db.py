@@ -50,6 +50,23 @@ def migrate_database():
                 
             if 'max_visits' not in column_names:
                 missing_columns.append("ALTER TABLE urls ADD COLUMN max_visits INTEGER;")
+                
+            # User relationship
+            if 'user_id' not in column_names:
+                missing_columns.append("ALTER TABLE urls ADD COLUMN user_id INTEGER REFERENCES users(id) ON DELETE SET NULL;")
+                
+            # Analytics fields
+            if 'referer' not in column_names:
+                missing_columns.append("ALTER TABLE urls ADD COLUMN referer VARCHAR(2048);")
+                
+            if 'user_agent' not in column_names:
+                missing_columns.append("ALTER TABLE urls ADD COLUMN user_agent VARCHAR(512);")
+                
+            if 'ip_address' not in column_names:
+                missing_columns.append("ALTER TABLE urls ADD COLUMN ip_address VARCHAR(45);")
+                
+            if 'last_visited' not in column_names:
+                missing_columns.append("ALTER TABLE urls ADD COLUMN last_visited TIMESTAMP;")
             
             # Apply missing column migrations
             if missing_columns:
