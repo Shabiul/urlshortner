@@ -13,121 +13,105 @@
     
     <!-- Custom styles -->
     <style>
-        /* Make all text blue */
+        /* Set dark background and white text */
         body {
-            color: blue !important;
+            background-color: #121212 !important;
+            color: white !important;
         }
         /* Override text for all heading elements */
         h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6 {
-            color: blue !important;
+            color: white !important;
         }
-        /* Make form inputs blue text */
+        /* Make form inputs dark with white text */
         input, textarea, select, .form-control, .form-control:focus {
-            color: blue !important;
+            background-color: #222 !important;
+            color: white !important;
+            border-color: #444 !important;
         }
-        /* Make links blue with no underline */
+        /* Make links light gray with no underline */
         a, a:hover, a:focus, a:active {
-            color: #0066cc !important;
+            color: #ccc !important;
             text-decoration: none;
         }
-        /* Override the text-muted class to use a lighter blue */
+        /* Override the text-muted class to use a lighter gray */
         .text-muted {
-            color: #6495ED !important; /* Cornflower blue */
+            color: #999 !important;
         }
-        /* Ensure buttons have blue text */
+        /* Ensure buttons have white text */
         .btn {
-            color: blue !important;
+            color: white !important;
         }
         /* Code elements */
         code, pre {
-            color: #0000ff !important; 
+            background-color: #222 !important;
+            color: white !important; 
         }
         /* Alert messages */
         .alert {
-            color: blue !important;
-        }
-        /* Ensure text in alerts is always blue, regardless of alert type */
-        .alert-success, .alert-danger, .alert-warning, .alert-info, .alert-primary, .alert-secondary {
-            color: blue !important;
+            color: white !important;
+            background-color: #333 !important;
+            border-color: #444 !important;
         }
         /* Table elements */
         table, th, td, .table {
-            color: blue !important;
+            color: white !important;
         }
         /* Font awesome icons */
         .fas, .far, .fab, .fa, .fa-solid, .fa-regular, .fa-brands {
-            color: blue !important;
+            color: white !important;
         }
         /* Only exception is the heart icon */
         .fa-heart {
             color: red !important;
         }
-        /* Text-success should be blue not green */
-        .text-success {
-            color: blue !important;
+        /* Make all cards black with white text */
+        .card {
+            background-color: #000 !important;
+            color: white !important;
+            border-color: #333 !important;
         }
-        /* Text-info should be blue */
-        .text-info {
-            color: blue !important;
+        
+        /* Override card headers to be slightly darker black */
+        .card-header {
+            background-color: #111 !important;
+            border-color: #333 !important;
         }
-        /* Override text-dark within badges */
-        .badge.bg-light .text-dark, .badge.bg-warning .text-dark {
-            color: blue !important;
-        }
-        /* Ensure cards with bg-light or bg-dark have blue text */
-        .card.bg-light, .card.bg-dark {
-            color: blue !important;
-        }
-        /* Override bg-primary headers to ensure text remains blue */
-        .card-header.bg-primary {
-            color: blue !important;
-        }
-        /* Ensure all badges have blue text */
+        
+        /* Style badges with white text */
         .badge {
-            color: blue !important;
+            color: white !important;
         }
-        /* Ensure all form labels have blue text */
-        .form-label, label {
-            color: blue !important;
-        }
-        /* Ensure placeholders in inputs have blue text */
+        
+        /* Style placeholders in inputs with gray text */
         ::placeholder {
-            color: rgba(0, 0, 255, 0.6) !important;
+            color: rgba(255, 255, 255, 0.6) !important;
         }
-        /* Ensure all spans and small elements have blue text */
-        span, small {
-            color: blue !important;
-        }
-        /* Ensure form-related elements have blue text */
-        label, input, textarea, select, option, .form-control, .form-select {
-            color: blue !important;
-        }
+        
         /* Style form focus */
         .form-control:focus, .form-select:focus {
-            border-color: blue !important;
-            box-shadow: 0 0 0 0.25rem rgba(0, 0, 255, 0.25) !important;
+            border-color: white !important;
+            box-shadow: 0 0 0 0.25rem rgba(255, 255, 255, 0.25) !important;
         }
+        
         /* Style buttons primary */
         .btn-primary {
-            background-color: #0000CC !important;
-            border-color: #0000CC !important;
+            background-color: #333 !important;
+            border-color: #444 !important;
         }
+        
         .btn-primary:hover, .btn-primary:focus {
-            background-color: #0000FF !important;
-            border-color: #0000FF !important;
+            background-color: #444 !important;
+            border-color: #555 !important;
         }
-        /* Style links */
-        a {
-            color: blue !important;
-            text-decoration: none;
+        
+        /* Override bg-light cards to be black too */
+        .card.bg-light {
+            background-color: #000 !important;
         }
-        a:hover {
-            color: #0000FF !important;
-            text-decoration: underline;
-        }
-        /* Ensure code blocks have blue text */
-        pre, code {
-            color: blue !important;
+        
+        /* Override text-dark within badges */
+        .badge.bg-light .text-dark, .badge.bg-warning .text-dark {
+            color: white !important;
         }
         .url-card {
             transition: transform 0.2s;
