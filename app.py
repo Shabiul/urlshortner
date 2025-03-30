@@ -299,6 +299,7 @@ def shorten_url():
                 # Generate a new short code
                 short_code = generate_short_code()
                 is_custom = False
+                existing_url = None  # Ensure existing_url is defined
         
         # Create or update the URL entry
         if custom_alias or not existing_url or existing_url.is_expired():
@@ -479,6 +480,7 @@ def api_shorten_url():
                 # Generate a new short code
                 short_code = generate_short_code()
                 is_custom = False
+                existing_url = None  # Ensure existing_url is defined
         
         # Create or update the URL entry
         if custom_alias or not existing_url or existing_url.is_expired():
@@ -665,9 +667,79 @@ def dashboard():
 @login_required
 def account():
     """User account management page."""
+    if request.method == 'POST':
+        form_type = request.form.get('form_type')
+        
+        # Handle profile update
+        if form_type == 'profile':
+            username = request.form.get('username')
+            email = request.form.get('email')
+            
+            if not username or not email:
+                flash('Username and email are required.', 'danger')
+                return redirect(url_for('account'))
+                
+            try:
+                # Check if username is taken by another user
+                existing_user = User.query.filter(User.username == username, User.id != current_user.id).first()
+                if existing_user:
+                    flash('That username is already taken.', 'danger')
+                    return redirect(url_for('account'))
+                    
+                # Check if email is taken by another user
+                existing_email = User.query.filter(User.email == email, User.id != current_user.id).first()
+                if existing_email:
+                    flash('That email is already registered.', 'danger')
+                    return redirect(url_for('account'))
+                
+                # Update user profile
+                current_user.username = username
+                current_user.email = email
+                db.session.commit()
+                flash('Your profile has been updated.', 'success')
+            except Exception as e:
+                db.session.rollback()
+                logging.error(f"Error updating profile: {str(e)}")
+                flash('An error occurred while updating your profile.', 'danger')
+            
+        # Handle password change
+        elif form_type == 'password':
+            current_password = request.form.get('current_password')
+            new_password = request.form.get('new_password')
+            confirm_password = request.form.get('confirm_password')
+            
+            if not current_password or not new_password or not confirm_password:
+                flash('All password fields are required.', 'danger')
+                return redirect(url_for('account'))
+                
+            # Verify current password
+            if not current_user.check_password(current_password):
+                flash('Current password is incorrect.', 'danger')
+                return redirect(url_for('account'))
+                
+            # Verify password match
+            if new_password != confirm_password:
+                flash('New passwords do not match.', 'danger')
+                return redirect(url_for('account'))
+                
+            # Verify password length
+            if len(new_password) < 6:
+                flash('Password must be at least 6 characters long.', 'danger')
+                return redirect(url_for('account'))
+            
+            try:
+                # Update password
+                current_user.set_password(new_password)
+                db.session.commit()
+                flash('Your password has been updated.', 'success')
+            except Exception as e:
+                db.session.rollback()
+                logging.error(f"Error updating password: {str(e)}")
+                flash('An error occurred while updating your password.', 'danger')
+                
     return render_template('account.html', title='Account')
 
-@app.route('/url/delete/<int:url_id>', methods=['POST'])
+@app.route('/url/delete/<int:url_id>')
 @login_required
 def delete_url(url_id):
     """Delete a user's URL."""
