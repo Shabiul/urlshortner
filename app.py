@@ -140,6 +140,20 @@ def shorten_url():
                 flash('Custom alias can only contain letters, numbers, hyphens, and underscores.', 'danger')
                 return redirect(url_for('index'))
             
+            # Check for reserved keywords or potentially harmful patterns
+            if custom_alias.lower() in ['api', 'admin', 'static', 'health', 'shorten', 'logout', 'login', 'register']:
+                flash('This alias is a reserved word and cannot be used. Please choose another.', 'danger')
+                return redirect(url_for('index'))
+                
+            # Enforce minimum and maximum length
+            if len(custom_alias) < 3:
+                flash('Custom alias must be at least 3 characters long.', 'danger')
+                return redirect(url_for('index'))
+                
+            if len(custom_alias) > 30:
+                flash('Custom alias must be no more than 30 characters long.', 'danger')
+                return redirect(url_for('index'))
+            
             # Check if custom alias already exists
             existing_alias = URL.query.filter_by(short_code=custom_alias).first()
             if existing_alias:
@@ -282,6 +296,17 @@ def api_shorten_url():
             if not re.match(r'^[a-zA-Z0-9_-]+$', custom_alias):
                 return jsonify({'error': 'Custom alias can only contain letters, numbers, hyphens, and underscores'}), 400
             
+            # Check for reserved keywords or potentially harmful patterns
+            if custom_alias.lower() in ['api', 'admin', 'static', 'health', 'shorten', 'logout', 'login', 'register']:
+                return jsonify({'error': 'This alias is a reserved word and cannot be used'}), 400
+                
+            # Enforce minimum and maximum length
+            if len(custom_alias) < 3:
+                return jsonify({'error': 'Custom alias must be at least 3 characters long'}), 400
+                
+            if len(custom_alias) > 30:
+                return jsonify({'error': 'Custom alias must be no more than 30 characters long'}), 400
+                
             # Check if custom alias already exists
             existing_alias = URL.query.filter_by(short_code=custom_alias).first()
             if existing_alias:
